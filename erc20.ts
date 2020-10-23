@@ -2,12 +2,8 @@ import type {AbiItem} from "web3-utils";
 import type Web3 from "web3";
 import {Transaction} from "ethereumjs-tx";
 
-export async function transferERC20(web3:Web3)
+export async function transferERC20(web3:Web3, fromAddress:string, toAddress:string, fromPrivateKey:Buffer)
 {
-  const fromAddress = "0xDE374ece6fA50e781E81Aac78e811b33D16912c7";
-  const fromPrivateKey = Buffer.from("-- private key goes here --", 'hex');
-  const toAddress = "0x4a9aFfA9249F36fd0629f342c182A4e94A13C2e0";
-
   const transferAmount = 1; // TODO: Get decimal places for Circle-Token (if 8 decimal places, this is 0.00000001)
   const count = await web3.eth.getTransactionCount(fromAddress); // the current transaction count is used as nonce
 
@@ -24,7 +20,7 @@ export async function transferERC20(web3:Web3)
     "to": tokenContractAddress,
     "value": "0x0",
     "data": contract.methods.transfer(toAddress, transferAmount).encodeABI(),
-    "chainId": 100, // xDai should be '100' accourding to https://chainid.network/chains/
+    "chainId": (100).toString(16), // xDai should be '100' accourding to https://chainid.network/chains/
     "networkId": 100
   };
 
