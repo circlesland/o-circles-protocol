@@ -1,8 +1,8 @@
 import Web3 from "web3";
-import {deploySafe, getSafeOwners, getTransactionHash} from "./safe";
+import {deploySafe, execTransaction, getSafeOwners, getTransactionHash} from "./safe";
 import {getSignupTransactionData, signupWithExternallyOwnedAccount} from "./hub";
 import {Transaction} from "ethereumjs-tx";
-import {AbiItem} from "web3-utils";
+import {AbiItem, getSignatureParameters} from "web3-utils";
 
 const GNOSIS_SAFE_ADDRESS = '0x5Ed4Ad5BB8e1D5fd254da44D1f4133DE92D0182e';
 const PROXY_FACTORY_ADDRESS = '0x63b34d56C78330903427AF9ba051d991A39c02d3';
@@ -53,19 +53,36 @@ async function run() {
     "chainId": chainId,
     "networkId": networkId
   };
+
   // 3. Wrap the data in a transaction
   const signupTransaction = new Transaction(signupTxData);
+
   // 4. Let the safe hash the transaction
   const signupTransactionHash = await getTransactionHash(web3, deploySafeResult.address, signupTransaction);
-  // TODO: 5. The necessary owner quorum must sign the hash
-  // TODO: 6. Let the Safe execute the transaction
 
+  // 5. The necessary owner quorum must sign the hash (TODO: here all owners sign it)
+  let signatureBytes = "0x";
+  for(let owner of owners) {
+    const sig = (await web3.eth.sign(signupTransactionHash, owner)).slice(2);
+    const sigParams = getSignatureParameters(sig);
+    signatureBytes += sigParams.r + sigParams.s + sigParams.v.toString(16);
+  }
 
-  const signupResult = await signupWithExternallyOwnedAccount(
+  // 6. Let the Safe execute the transaction
+  const transactionResult = await execTransaction(
     web3,
-    HUB_ADDRESS,
-    ACCOUNT.address
-  );
+    deploySafeResult.address,
+    ACCOUNT.address,
+    signupTxData);
+
+
+  /*
+      const signupResult = await signupWithExternallyOwnedAccount(
+          web3,
+          HUB_ADDRESS,
+          ACCOUNT.address
+      );
+   */
 
   /* Transfer ERC20 Token from Safe to Address:
   const count = await web3.eth.getTransactionCount(ACCOUNT.address);
