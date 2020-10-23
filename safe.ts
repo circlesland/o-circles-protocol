@@ -42,7 +42,7 @@ enum GnosisSafeOp {
 ///     address payable refundReceiver,
 ///     bytes calldata signatures
 /// )
-export async function execTransaction(web3:Web3, safeProxyAddress:string, safeOwner:string, data:TxData) {
+export async function execTransaction(web3:Web3, safeProxyAddress:string, safeOwner:string, data:TxData, signature:string) {
   const gnosisSafeProxy = new web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, safeProxyAddress);
   const op:GnosisSafeOp = GnosisSafeOp.CALL;
   const result = await gnosisSafeProxy.methods.execTransaction(
@@ -55,7 +55,7 @@ export async function execTransaction(web3:Web3, safeProxyAddress:string, safeOw
     data.gasPrice,
     ZERO_ADDRESS, // ETH
     ZERO_ADDRESS,
-    data.nonce
+    signature
   ).send({
     from: safeOwner
   });

@@ -2,7 +2,7 @@ import Web3 from "web3";
 import {deploySafe, execTransaction, getSafeOwners, getTransactionHash} from "./safe";
 import {getSignupTransactionData, signupWithExternallyOwnedAccount} from "./hub";
 import {Transaction} from "ethereumjs-tx";
-import {AbiItem, getSignatureParameters} from "web3-utils";
+import {AbiItem} from "web3-utils";
 
 const GNOSIS_SAFE_ADDRESS = '0x5Ed4Ad5BB8e1D5fd254da44D1f4133DE92D0182e';
 const PROXY_FACTORY_ADDRESS = '0x63b34d56C78330903427AF9ba051d991A39c02d3';
@@ -63,9 +63,11 @@ async function run() {
   // 5. The necessary owner quorum must sign the hash (TODO: here all owners sign it)
   let signatureBytes = "0x";
   for(let owner of owners) {
-    const sig = (await web3.eth.sign(signupTransactionHash, owner)).slice(2);
-    const sigParams = getSignatureParameters(sig);
-    signatureBytes += sigParams.r + sigParams.s + sigParams.v.toString(16);
+    signupTransaction.sign(Buffer.from(ACCOUNT.privateKey, "hex"));
+    signatureBytes +=
+      signupTransaction.r.toString("hex")
+      + signupTransaction.s.toString("hex")
+      + signupTransaction.v.readInt8(0);
   }
 
   // 6. Let the Safe execute the transaction
@@ -73,7 +75,8 @@ async function run() {
     web3,
     deploySafeResult.address,
     ACCOUNT.address,
-    signupTxData);
+    signupTxData,
+    signatureBytes);
 
 
   /*
