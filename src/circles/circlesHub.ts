@@ -25,6 +25,18 @@ export class CirclesHub
     return this.hubContract.methods.signup().encodeABI();
   }
 
+  static queryPastSignup(user: Address)
+  {
+    return {
+      event: "Signup",
+      filter: {
+        user: user
+      },
+      fromBlock: "earliest",
+      toBlock: "latest"
+    };
+  }
+
   static queryPastTransfers(from?: Address, to?: Address)
   {
     if (!from && !to)
