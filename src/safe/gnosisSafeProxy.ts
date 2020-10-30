@@ -16,6 +16,8 @@ import {sendSignedRawTransaction} from "../sendSignedRawTransaction";
 import {config} from "../config";
 import EthLibAccount from "eth-lib/lib/account";
 import {Observable} from "rxjs";
+import type {PastEventOptions} from "web3-eth-contract";
+import {Subject} from "rxjs";
 
 export class GnosisSafeProxy
 {
@@ -32,8 +34,11 @@ export class GnosisSafeProxy
         this.proxyContract = new this.web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, this.safeProxyAddress);
     }
 
-    async feedPastEvents() {
+    async feedPastEvents(event:string, options:PastEventOptions) {
+      const result = await this.proxyContract.getPastEvents(event, options);
+      result.forEach(event => this._pastEvents.next(event));
     }
+    private readonly _pastEvents:Subject<any> = new Subject<any>();
 
     getEvents() : Observable<any> {
         return new Observable<any>((subscriber => {
