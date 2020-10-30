@@ -34,59 +34,65 @@ export class GnosisSafeProxy
     this.proxyContract = new this.web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, this.safeProxyAddress);
   }
 
-  async feedPastSuccessfulExecutions() {
-    await this.feedPastEvents("ExecutionSuccess", {
-      address: this.safeProxyAddress,
+  static queryPastSuccessfulExecutions(address:Address)
+  {
+    return {
+      event: "ExecutionSuccess",
+      address: address,
       fromBlock: "earliest",
       toBlock: "latest"
-    });
+    };
   }
 
-  async feedPastEvents(event:string, options:PastEventOptions) {
-    const result = await this.proxyContract.getPastEvents(event, options);
+  async feedPastEvents(options: PastEventOptions & {event:string})
+  {
+    const result = await this.proxyContract.getPastEvents(options.event, options);
     result.forEach(event => this._pastEvents.next(event));
   }
-  private readonly _pastEvents:Subject<any> = new Subject<any>();
 
-  getEvents() : Observable<any> {
-    return new Observable<any>((subscriber => {
+  private readonly _pastEvents: Subject<any> = new Subject<any>();
+
+  getEvents(): Observable<any>
+  {
+    return new Observable<any>((subscriber =>
+    {
       this._pastEvents.subscribe(next => subscriber.next(next));
 
       this.proxyContract.events.AddedOwner()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ApproveHash()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ChangedMasterCopy()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ChangedThreshold()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.DisabledModule()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.EnabledModule()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ExecutionFailure()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ExecutionFromModuleFailure()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ExecutionFromModuleSuccess()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.ExecutionSuccess()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.RemovedOwner()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.proxyContract.events.SignMsg()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
     }));
   }
 

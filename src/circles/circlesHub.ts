@@ -25,61 +25,69 @@ export class CirclesHub
     return this.hubContract.methods.signup().encodeABI();
   }
 
-  async feedPastTransfers(from?:Address, to?:Address) {
+  static queryPastTransfers(from?: Address, to?: Address)
+  {
     if (!from && !to)
       throw new Error("At least one of the two parameters has to be set to a value.");
 
-    let f:any = {};
+    let f: any = {};
     if (from)
       f.from = from;
     if (to)
       f.to = to;
 
-    await this.feedPastEvents("HubTransfer", {
+    return {
+      event: "HubTransfer",
       filter: f,
       fromBlock: "earliest",
       toBlock: "latest"
-    });
+    };
   }
 
-  async feedPastTrusts(canSendTo?:Address, user?:Address) {
-    if (!canSendTo && ! user)
+  static queryPastTrusts(canSendTo?: Address, user?: Address)
+  {
+    if (!canSendTo && !user)
       throw new Error("At least one of the two parameters has to be set to a value.");
 
-    let f:any = {};
+    let f: any = {};
     if (canSendTo)
       f.canSendTo = canSendTo;
     if (user)
       f.user = user;
 
-    await this.feedPastEvents("Trust", {
+    return {
+      event: "Trust",
       filter: f,
       fromBlock: "earliest",
       toBlock: "latest"
-    });
+    };
   }
 
-  async feedPastEvents(event:string, options:PastEventOptions) {
-    const result = await this.hubContract.getPastEvents(event, options);
+  async feedPastEvents(options: PastEventOptions & {event:string})
+  {
+    const result = await this.hubContract.getPastEvents(options.event, options);
     result.forEach(event => this._pastEvents.next(event));
   }
-  private readonly _pastEvents:Subject<any> = new Subject<any>();
 
-  getEvents() : Observable<any> {
-    return new Observable<any>((subscriber => {
+  private readonly _pastEvents: Subject<any> = new Subject<any>();
+
+  getEvents(): Observable<any>
+  {
+    return new Observable<any>((subscriber =>
+    {
       this._pastEvents.subscribe(next => subscriber.next(next));
 
       this.hubContract.events.Signup()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.hubContract.events.HubTransfer()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.hubContract.events.OrganizationSignup()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
 
       this.hubContract.events.Trust()
-        .on('data', (event:any) =>  subscriber.next(event));
+        .on('data', (event: any) => subscriber.next(event));
     }));
   }
 
@@ -119,7 +127,7 @@ export class CirclesHub
       });
   }
 
-  async directTransfer(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
+  async transferTrough(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
   {
     const transfer: { tokenOwners: Address[], sources: Address[], destinations: Address[], values: string[] } = {
       tokenOwners: [safeProxy.safeProxyAddress],
