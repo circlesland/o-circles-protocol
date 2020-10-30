@@ -25,20 +25,26 @@ async function run()
     cfg.ACCOUNT.address,
     "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
 
-  const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
+  safeProxy.getEvents().subscribe(event =>
+  {
+    console.log("Safe event:", event);
+  });
 
+  await safeProxy.feedPastSuccessfulExecutions();
+
+  const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
 
   // Subscribe to the events of the circles hub.
   circlesHub.getEvents().subscribe(event =>
   {
     console.log("Hub event:", event);
   });
-
-  await circlesHub.feedPastTrusts("0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
-  await circlesHub.feedPastTrusts(undefined, "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
-  await circlesHub.feedPastTransfers("0xC816d35b511bbBD647a063ef521bA12242C7F4B5", undefined);
-  await circlesHub.feedPastTransfers(undefined, "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
-
+  /*
+      await circlesHub.feedPastTrusts("0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
+      await circlesHub.feedPastTrusts(undefined, "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
+      await circlesHub.feedPastTransfers("0xC816d35b511bbBD647a063ef521bA12242C7F4B5", undefined);
+      await circlesHub.feedPastTransfers(undefined, "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
+  */
 
   /*
       const receipt = await circlesHub.signup(
