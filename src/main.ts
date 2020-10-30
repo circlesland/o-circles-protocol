@@ -8,51 +8,60 @@ import {GnosisSafeProxyFactory} from "./safe/gnosisSafeProxyFactory";
 
 async function run()
 {
-    const cfg = config.getCurrent();
-    const web3 = cfg.web3();
+  const cfg = config.getCurrent();
+  const web3 = cfg.web3();
 
-/*
-    const safeProxy = await GnosisSafeProxyFactory.deployNewSafeProxy(
-        web3,
-        cfg.GNOSIS_SAFE_ADDRESS,
-        cfg.PROXY_FACTORY_ADDRESS,
-        cfg.ACCOUNT.address);
-*/
+  /*
+      const safeProxy = await GnosisSafeProxyFactory.deployNewSafeProxy(
+          web3,
+          cfg.GNOSIS_SAFE_ADDRESS,
+          cfg.PROXY_FACTORY_ADDRESS,
+          cfg.ACCOUNT.address);
+  */
 
-    const safeProxy = new GnosisSafeProxy(
-        web3,
-        cfg.ACCOUNT.address,
-        "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
+  const safeProxy = new GnosisSafeProxy(
+    web3,
+    cfg.ACCOUNT.address,
+    "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
 
+  safeProxy.getEvents().subscribe(event =>
+  {
+    console.log("Safe event:", event);
+  });
 
-    const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
+  const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
 
-    /*
-    const receipt = await circlesHub.signup(
-        cfg.ACCOUNT,
-        safeProxy);
+  circlesHub.getEvents().subscribe(event =>
+  {
+    console.log("Hub event:", event);
+  });
 
-    const receipt = await circlesHub.setTrust(
-        cfg.ACCOUNT,
-        safeProxy,
-        "0xDE374ece6fA50e781E81Aac78e811b33D16912c7",
-        new BN("0"));
+  /*
+  const receipt = await circlesHub.signup(
+      cfg.ACCOUNT,
+      safeProxy);
 
-    const receipt = await circlesHub.directTransfer(
-        cfg.ACCOUNT,
-        safeProxy,
-        "0xde374ece6fa50e781e81aac78e811b33d16912c7",
-        new BN("1"));
+  const receipt = await circlesHub.setTrust(
+      cfg.ACCOUNT,
+      safeProxy,
+      "0xDE374ece6fA50e781E81Aac78e811b33D16912c7",
+      new BN("0"));
 
-    const receipt = await safeProxy.sendEth(
-        cfg.ACCOUNT,
-        new BN(web3.utils.toWei("0.0000025", "ether")),
-        cfg.ACCOUNT.address);
+  const receipt = await circlesHub.directTransfer(
+      cfg.ACCOUNT,
+      safeProxy,
+      "0xde374ece6fa50e781e81aac78e811b33d16912c7",
+      new BN("1"));
 
-    console.log(receipt);
-    */
+  const receipt = await safeProxy.sendEth(
+      cfg.ACCOUNT,
+      new BN(web3.utils.toWei("0.0000025", "ether")),
+      cfg.ACCOUNT.address);
 
-    process.exit();
+  console.log(receipt);
+  */
+
+  process.exit();
 }
 
 run();
