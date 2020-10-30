@@ -146,14 +146,32 @@ export class GnosisSafeProxy {
             .encodeABI();
     }
 
-    async estimateSafeTxGasCosts(safeTransaction:GnosisSafeTransaction) : Promise<BN> {
-        // from https://github.com/gnosis/safe-react -> /src/logic/safe/transactions/gasNew.ts
-        validateSafeTransaction(this.web3, safeTransaction);
+    async estimateSafeTxGasCosts(safeTransaction: GnosisSafeTransaction): Promise<BN>
+    {
+      // from https://github.com/gnosis/safe-react -> /src/logic/safe/transactions/gasNew.ts
+      validateSafeTransaction(this.web3, safeTransaction);
 
-        const txGasEstimation = new BN("1500000");
-        const dataGasEstimation = this.estimateDataGasCosts(safeTransaction.data).add(new BN("21000"));
+      const estimateDataCallData = this.proxyContract.methods.requiredTxGas(
+        safeTransaction.to,
+        safeTransaction.value,
+        safeTransaction.data,
+        safeTransaction.operation).encodeABI();
 
-        return txGasEstimation.add(dataGasEstimation);
+      const txGasEstimation = await this.web3.eth.call({
+        from: this.safeProxyAddress,
+        to: this.safeProxyAddress,
+        data: estimateDataCallData
+      })
+        .catch(e => {
+          return new BN(e.data.substring(148), 16)
+        })
+        .then(() => {
+          return new BN(0);
+        });
+
+      const dataGasEstimation = this.estimateDataGasCosts(safeTransaction.data)
+        .add(new BN("21000"));
+      return txGasEstimation.add(dataGasEstimation);
     }
 
     estimateBaseGasCosts(safeTransaction:GnosisSafeTransaction, signatureCount:number) : BN
