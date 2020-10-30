@@ -1,9 +1,9 @@
-import Web3 from "web3";
+import type Web3 from "web3";
 import {Address, ByteString, GnosisSafeOps} from "../safe/gnosisSafeTransaction";
-import {AbiItem} from "web3-utils";
+import type {AbiItem} from "web3-utils";
 import type {Contract} from "web3-eth-contract";
 import {CIRCLES_HUB_ABI, ZERO_ADDRESS} from "../consts";
-import {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
+import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 import {BN} from "ethereumjs-util";
 
 export class CirclesHub {
@@ -23,7 +23,7 @@ export class CirclesHub {
         return this.hubContract.methods.signup().encodeABI();
     }
 
-    async signup(safeProxy:GnosisSafeProxy, gasPrice:BN, safeOwner:Address, safeOwnerPrivateKey:ByteString)
+    async signup(safeProxy:GnosisSafeProxy, safeOwner:Address, safeOwnerPrivateKey:ByteString)
     {
         const circlesHubSignupTxData = this.getSignupTxData();
         const signupReceipt = await safeProxy.execTransaction({
@@ -32,8 +32,7 @@ export class CirclesHub {
                 value: new BN("0"),
                 refundReceiver: ZERO_ADDRESS,
                 gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL,
-                gasPrice: gasPrice,
+                operation: GnosisSafeOps.CALL
             },
             safeOwner,
             safeOwnerPrivateKey);
@@ -46,7 +45,7 @@ export class CirclesHub {
         return this.hubContract.methods.trust(recipient, limit).encodeABI();
     }
 
-    async setTrust(safeProxy:GnosisSafeProxy, gasPrice:BN, to:Address, trustPercentage:BN, safeOwner:Address, safeOwnerPrivateKey:ByteString)
+    async setTrust(safeProxy:GnosisSafeProxy, to:Address, trustPercentage:BN, safeOwner:Address, safeOwnerPrivateKey:ByteString)
     {
         const trustTxData = this.getTrustTxData(to, trustPercentage);
         const trustReceipt = await safeProxy.execTransaction({
@@ -55,8 +54,7 @@ export class CirclesHub {
                 value: new BN("0"),
                 refundReceiver: ZERO_ADDRESS,
                 gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL,
-                gasPrice: gasPrice,
+                operation: GnosisSafeOps.CALL
             },
             safeOwner,
             safeOwnerPrivateKey);
@@ -64,7 +62,7 @@ export class CirclesHub {
         return trustReceipt;
     }
 
-    async directTransfer(safeProxy:GnosisSafeProxy, gasPrice:BN, to:Address, amount:BN, safeOwner:Address, safeOwnerPrivateKey:ByteString)
+    async directTransfer(safeProxy:GnosisSafeProxy, to:Address, amount:BN, safeOwner:Address, safeOwnerPrivateKey:ByteString)
     {
         const transfer:{tokenOwners:Address[], sources:Address[], destinations:Address[], values:string[]} = {
             tokenOwners: [safeProxy.safeProxyAddress],
@@ -94,8 +92,7 @@ export class CirclesHub {
                 value: new BN("0"),
                 refundReceiver: ZERO_ADDRESS,
                 gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL,
-                gasPrice: gasPrice,
+                operation: GnosisSafeOps.CALL
             },
             safeOwner,
             safeOwnerPrivateKey);

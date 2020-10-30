@@ -17,7 +17,6 @@ export interface GnosisSafeTransaction {
     operation:GnosisSafeOps;
     safeTxGas?:BN;
     baseGas?:BN;
-    gasPrice:BN;
     gasToken:Address;
     refundReceiver:Address;
     nonce?:number;
@@ -28,8 +27,6 @@ export function validateSafeTransaction(web3:Web3, safeTransaction:GnosisSafeTra
         throw new Error("The 'safeTxGas' property of the transaction is not a valid bn.js BigNum.");
     if (safeTransaction.baseGas && !BN.isBN(safeTransaction.baseGas))
         throw new Error("The 'baseGas' property of the transaction is not a valid bn.js BigNum.");
-    if (!BN.isBN(safeTransaction.gasPrice))
-        throw new Error("The 'gasPrice' property of the transaction is not a valid bn.js BigNum.");
     if (!BN.isBN(safeTransaction.value))
         throw new Error("The 'value' property of the transaction is not a valid bn.js BigNum.");
     if (!safeTransaction.data.startsWith("0x"))

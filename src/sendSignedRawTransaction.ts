@@ -1,5 +1,5 @@
 import type Web3 from "web3";
-import {ByteString} from "./safe/gnosisSafeTransaction";
+import type {ByteString} from "./safe/gnosisSafeTransaction";
 
 export async function sendSignedRawTransaction(web3:Web3, serializedTx:ByteString) {
     return web3.eth.sendSignedTransaction(serializedTx)

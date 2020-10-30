@@ -11,8 +11,6 @@ async function run()
   const cfg = config.getCurrent();
   const web3 = cfg.web3();
 
-  const gasPrice = new BN(web3.utils.toWei("1", "gwei"));
-
   //
   // Deploy a new safe ..
   //
@@ -21,8 +19,7 @@ async function run()
           web3,
           cfg.GNOSIS_SAFE_ADDRESS,
           cfg.PROXY_FACTORY_ADDRESS,
-          cfg.ACCOUNT.address,
-          gasPrice);
+          cfg.ACCOUNT.address);
   */
 
   //
@@ -43,7 +40,6 @@ async function run()
   /*
   const receipt = await circlesHub.signup(
     safeProxy,
-    gasPrice,
     cfg.ACCOUNT.address,
     cfg.ACCOUNT.privateKey);
   */
@@ -54,7 +50,6 @@ async function run()
   /*
    const receipt = await circlesHub.setTrust(
        safeProxy,
-       gasPrice,
        "0x12345",
        new BN("50"),
        cfg.ACCOUNT.address,
@@ -65,7 +60,6 @@ async function run()
   //
   const receipt = await circlesHub.directTransfer(
     safeProxy,
-    gasPrice,
     "0x12345",
     new BN("1"),
     cfg.ACCOUNT.address,

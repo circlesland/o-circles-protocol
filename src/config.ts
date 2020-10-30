@@ -1,5 +1,6 @@
 import Web3 from "web3";
 import Common from "ethereumjs-common";
+import BN from "bn.js";
 
 export const config = {
     ganache: {
@@ -15,6 +16,7 @@ export const config = {
                 return undefined;
             }
         },
+        getGasPrice: (web3:Web3) => new BN(web3.utils.toWei("1", "gwei")),
         web3:() => {
             const provider = new Web3.providers.HttpProvider(
                 "HTTP://127.0.0.1:7545"
@@ -46,6 +48,7 @@ export const config = {
                 );
             }
         },
+        getGasPrice: (web3:Web3) => new BN(web3.utils.toWei("1", "gwei")),
         web3:() => {
             const provider = new Web3.providers.HttpProvider(
                 "https://rpc.xdaichain.com/"

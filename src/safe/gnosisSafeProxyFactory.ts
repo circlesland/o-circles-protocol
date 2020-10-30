@@ -1,11 +1,11 @@
-import Web3 from "web3";
-import {AbiItem} from "web3-utils";
+import type Web3 from "web3";
+import type {AbiItem} from "web3-utils";
 import {GNOSIS_SAFE_ABI, PROXY_FACTORY_ABI, ZERO_ADDRESS} from "../consts";
 import {BN} from "ethereumjs-util";
 import {GnosisSafeProxy} from "./gnosisSafeProxy";
 import {signRawTransaction} from "../signRawTransaction";
 import {sendSignedRawTransaction} from "../sendSignedRawTransaction";
-import {Address} from "./gnosisSafeTransaction";
+import type {Address} from "./gnosisSafeTransaction";
 
 export class GnosisSafeProxyFactory {
     /**
@@ -21,8 +21,7 @@ export class GnosisSafeProxyFactory {
         web3:Web3,
         masterSafeAddress:Address,
         proxyFactoryAddress:Address,
-        creator:string,
-        gasPrice:BN)
+        creator:string)
         : Promise<GnosisSafeProxy>
     {
         const proxyFactory = new web3.eth.Contract(<AbiItem[]>PROXY_FACTORY_ABI, proxyFactoryAddress);
@@ -53,7 +52,6 @@ export class GnosisSafeProxyFactory {
             web3,
             <any>proxyFactoryAddress,
             createProxyData,
-            gasPrice,
             estimatedGas,
             new BN("0"));
 
