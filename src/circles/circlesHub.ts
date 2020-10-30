@@ -9,118 +9,149 @@ import {Observable, Subject} from "rxjs";
 
 export class CirclesHub
 {
-    readonly web3: Web3;
-    readonly hubAddress: Address;
-    readonly hubContract: Contract;
+  readonly web3: Web3;
+  readonly hubAddress: Address;
+  readonly hubContract: Contract;
 
-    constructor(web3: Web3, hubAddress: Address)
-    {
-        this.web3 = web3;
-        this.hubAddress = hubAddress;
-        this.hubContract = new this.web3.eth.Contract(<AbiItem[]>CIRCLES_HUB_ABI, this.hubAddress);
-    }
+  constructor(web3: Web3, hubAddress: Address)
+  {
+    this.web3 = web3;
+    this.hubAddress = hubAddress;
+    this.hubContract = new this.web3.eth.Contract(<AbiItem[]>CIRCLES_HUB_ABI, this.hubAddress);
+  }
 
-    getSignupTxData()
-    {
-        return this.hubContract.methods.signup().encodeABI();
-    }
+  getSignupTxData()
+  {
+    return this.hubContract.methods.signup().encodeABI();
+  }
 
-    async feedPastEvents(event:string, options:PastEventOptions) {
-        const result = await this.hubContract.getPastEvents(event, options);
-        result.forEach(event => this._pastEvents.next(event));
-    }
-    private readonly _pastEvents:Subject<any> = new Subject<any>();
+  async feedPastTransfers(from?:Address, to?:Address) {
+    if (!from && !to)
+      throw new Error("At least one of the two parameters has to be set to a value.");
 
-    getEvents() : Observable<any> {
-        return new Observable<any>((subscriber => {
-            this._pastEvents.subscribe(next => subscriber.next(next));
+    let f:any = {};
+    if (from)
+      f.from = from;
+    if (to)
+      f.to = to;
 
-            this.hubContract.events.Signup()
-                .on('data', (event:any) =>  subscriber.next(event));
+    await this.feedPastEvents("HubTransfer", {
+      filter: f,
+      fromBlock: "earliest",
+      toBlock: "latest"
+    });
+  }
 
-            this.hubContract.events.HubTransfer()
-                .on('data', (event:any) =>  subscriber.next(event));
+  async feedPastTrusts(canSendTo?:Address, user?:Address) {
+    if (!canSendTo && ! user)
+      throw new Error("At least one of the two parameters has to be set to a value.");
 
-            this.hubContract.events.OrganizationSignup()
-                .on('data', (event:any) =>  subscriber.next(event));
+    let f:any = {};
+    if (canSendTo)
+      f.canSendTo = canSendTo;
+    if (user)
+      f.user = user;
 
-            this.hubContract.events.Signup()
-                .on('data', (event:any) =>  subscriber.next(event));
+    await this.feedPastEvents("Trust", {
+      filter: f,
+      fromBlock: "earliest",
+      toBlock: "latest"
+    });
+  }
 
-            this.hubContract.events.Trust()
-                .on('data', (event:any) =>  subscriber.next(event));
-        }));
-    }
+  async feedPastEvents(event:string, options:PastEventOptions) {
+    const result = await this.hubContract.getPastEvents(event, options);
+    result.forEach(event => this._pastEvents.next(event));
+  }
+  private readonly _pastEvents:Subject<any> = new Subject<any>();
 
-    async signup(account: Account, safeProxy: GnosisSafeProxy)
-    {
-        const circlesHubSignupTxData = this.getSignupTxData();
+  getEvents() : Observable<any> {
+    return new Observable<any>((subscriber => {
+      this._pastEvents.subscribe(next => subscriber.next(next));
 
-        return await safeProxy.execTransaction(
-            account,
-            {
-                to: this.hubAddress,
-                data: circlesHubSignupTxData,
-                value: new BN("0"),
-                refundReceiver: ZERO_ADDRESS,
-                gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL
-            });
-    }
+      this.hubContract.events.Signup()
+        .on('data', (event:any) =>  subscriber.next(event));
 
-    getTrustTxData(recipient: Address, limit: BN)
-    {
-        return this.hubContract.methods.trust(recipient, limit).encodeABI();
-    }
+      this.hubContract.events.HubTransfer()
+        .on('data', (event:any) =>  subscriber.next(event));
 
-    async setTrust(account: Account, safeProxy: GnosisSafeProxy, to: Address, trustPercentage: BN)
-    {
-        const trustTxData = this.getTrustTxData(to, trustPercentage);
-        return await safeProxy.execTransaction(
-            account,
-            {
-                to: this.hubAddress,
-                data: trustTxData,
-                value: new BN("0"),
-                refundReceiver: ZERO_ADDRESS,
-                gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL
-            });
-    }
+      this.hubContract.events.OrganizationSignup()
+        .on('data', (event:any) =>  subscriber.next(event));
 
-    async directTransfer(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
-    {
-        const transfer: { tokenOwners: Address[], sources: Address[], destinations: Address[], values: string[] } = {
-            tokenOwners: [safeProxy.safeProxyAddress],
-            sources: [safeProxy.safeProxyAddress],
-            destinations: [to],
-            values: [amount.toString()],
-        };
+      this.hubContract.events.Trust()
+        .on('data', (event:any) =>  subscriber.next(event));
+    }));
+  }
 
-        const sendLimit = await this.hubContract.methods
-            .checkSendLimit(safeProxy.safeProxyAddress, safeProxy.safeProxyAddress, to)
-            .call();
+  async signup(account: Account, safeProxy: GnosisSafeProxy)
+  {
+    const circlesHubSignupTxData = this.getSignupTxData();
 
-        if (new BN(sendLimit).lt(amount))
-            throw new Error("You cannot transfer " + amount.toString() + "units to " + to + " because the recipient doesn't trust your tokens.");
+    return await safeProxy.execTransaction(
+      account,
+      {
+        to: this.hubAddress,
+        data: circlesHubSignupTxData,
+        value: new BN("0"),
+        refundReceiver: ZERO_ADDRESS,
+        gasToken: ZERO_ADDRESS,
+        operation: GnosisSafeOps.CALL
+      });
+  }
 
-        const txData = await this.hubContract.methods.transferThrough(
-            transfer.tokenOwners,
-            transfer.sources,
-            transfer.destinations,
-            transfer.values,
-        )
-            .encodeABI();
+  getTrustTxData(recipient: Address, limit: BN)
+  {
+    return this.hubContract.methods.trust(recipient, limit).encodeABI();
+  }
 
-        return await safeProxy.execTransaction(
-            account,
-            {
-                to: this.hubAddress,
-                data: txData,
-                value: new BN("0"),
-                refundReceiver: ZERO_ADDRESS,
-                gasToken: ZERO_ADDRESS,
-                operation: GnosisSafeOps.CALL
-            });
-    }
+  async setTrust(account: Account, safeProxy: GnosisSafeProxy, to: Address, trustPercentage: BN)
+  {
+    const trustTxData = this.getTrustTxData(to, trustPercentage);
+    return await safeProxy.execTransaction(
+      account,
+      {
+        to: this.hubAddress,
+        data: trustTxData,
+        value: new BN("0"),
+        refundReceiver: ZERO_ADDRESS,
+        gasToken: ZERO_ADDRESS,
+        operation: GnosisSafeOps.CALL
+      });
+  }
+
+  async directTransfer(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
+  {
+    const transfer: { tokenOwners: Address[], sources: Address[], destinations: Address[], values: string[] } = {
+      tokenOwners: [safeProxy.safeProxyAddress],
+      sources: [safeProxy.safeProxyAddress],
+      destinations: [to],
+      values: [amount.toString()],
+    };
+
+    const sendLimit = await this.hubContract.methods
+      .checkSendLimit(safeProxy.safeProxyAddress, safeProxy.safeProxyAddress, to)
+      .call();
+
+    if (new BN(sendLimit).lt(amount))
+      throw new Error("You cannot transfer " + amount.toString() + "units to " + to + " because the recipient doesn't trust your tokens.");
+
+    const txData = await this.hubContract.methods.transferThrough(
+      transfer.tokenOwners,
+      transfer.sources,
+      transfer.destinations,
+      transfer.values,
+    )
+      .encodeABI();
+
+    return await safeProxy.execTransaction(
+      account,
+      {
+        to: this.hubAddress,
+        data: txData,
+        value: new BN("0"),
+        refundReceiver: ZERO_ADDRESS,
+        gasToken: ZERO_ADDRESS,
+        operation: GnosisSafeOps.CALL
+      });
+  }
 }
