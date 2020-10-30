@@ -11,7 +11,7 @@ export async function sendSignedRawTransaction(web3:Web3, serializedTx:ByteStrin
         {
             console.log("web3.eth.sendSignedTransaction | Got receipt:", receipt);
         })
-        .on('confirmation', (confNumber, receipt) =>
+        .on('confirmation', (confNumber) =>
         {
             console.log("web3.eth.sendSignedTransaction | Got confirmation. Conf No.: " + confNumber);
         })

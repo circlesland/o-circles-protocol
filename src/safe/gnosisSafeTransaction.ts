@@ -10,6 +10,11 @@ export enum GnosisSafeOps {
     CREATE = 2
 }
 
+export interface Account {
+    address:Address,
+    privateKey:ByteString
+}
+
 export interface GnosisSafeTransaction {
     to: Address;
     value: BN;

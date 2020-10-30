@@ -4,82 +4,55 @@ import {ZERO_ADDRESS} from "./consts";
 import {GnosisSafeOps} from "./safe/gnosisSafeTransaction";
 import {CirclesHub} from "./circles/circlesHub";
 import {GnosisSafeProxy} from "./safe/gnosisSafeProxy";
+import {GnosisSafeProxyFactory} from "./safe/gnosisSafeProxyFactory";
 
 async function run()
 {
+    const cfg = config.getCurrent();
+    const web3 = cfg.web3();
 
-  const cfg = config.getCurrent();
-  const web3 = cfg.web3();
+/*
+    const safeProxy = await GnosisSafeProxyFactory.deployNewSafeProxy(
+        web3,
+        cfg.GNOSIS_SAFE_ADDRESS,
+        cfg.PROXY_FACTORY_ADDRESS,
+        cfg.ACCOUNT.address);
+*/
 
-  //
-  // Deploy a new safe ..
-  //
-  /*
-      const safeProxy = await GnosisSafeProxyFactory.deployNewSafeProxy(
-          web3,
-          cfg.GNOSIS_SAFE_ADDRESS,
-          cfg.PROXY_FACTORY_ADDRESS,
-          cfg.ACCOUNT.address);
-  */
-
-  //
-  // .. or use an existing safe
-  //
-
-  const safeProxy = new GnosisSafeProxy(
-    web3,
-    cfg.ACCOUNT.address,
-    "0x12345");
+    const safeProxy = new GnosisSafeProxy(
+        web3,
+        cfg.ACCOUNT.address,
+        "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
 
 
-  const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
+    const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
 
-  //
-  // Signup at the circles hub
-  //
-  /*
-  const receipt = await circlesHub.signup(
-    safeProxy,
-    cfg.ACCOUNT.address,
-    cfg.ACCOUNT.privateKey);
-  */
+    /*
+    const receipt = await circlesHub.signup(
+        cfg.ACCOUNT,
+        safeProxy);
 
-  //
-  // Trust someone
-  //
-  /*
-   const receipt = await circlesHub.setTrust(
-       safeProxy,
-       "0x12345",
-       new BN("50"),
-       cfg.ACCOUNT.address,
-       cfg.ACCOUNT.privateKey);
+    const receipt = await circlesHub.setTrust(
+        cfg.ACCOUNT,
+        safeProxy,
+        "0xDE374ece6fA50e781E81Aac78e811b33D16912c7",
+        new BN("0"));
 
-  //
-  // Transfer circles to other safes that trust you
-  //
-  const receipt = await circlesHub.directTransfer(
-    safeProxy,
-    "0x12345",
-    new BN("1"),
-    cfg.ACCOUNT.address,
-    cfg.ACCOUNT.privateKey);
-   */
+    const receipt = await circlesHub.directTransfer(
+        cfg.ACCOUNT,
+        safeProxy,
+        "0xde374ece6fa50e781e81aac78e811b33d16912c7",
+        new BN("1"));
 
-  //
-  // Transfer regular ETH or xDAI via the safe
-  //
-  /*
-  const receipt = await safeProxy.sendEth(
-      new BN(web3.utils.toWei("0.025", "ether")),
-      cfg.ACCOUNT.address,
-      cfg.ACCOUNT.address,
-      cfg.ACCOUNT.privateKey);
-   */
+    const receipt = await safeProxy.sendEth(
+        cfg.ACCOUNT,
+        new BN(web3.utils.toWei("0.0000025", "ether")),
+        cfg.ACCOUNT.address);
 
-  // console.log(receipt);
+    console.log(receipt);
+    */
 
-  process.exit();
+    process.exit();
 }
 
 run();
