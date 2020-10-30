@@ -1,10 +1,11 @@
 import type Web3 from "web3";
 import {Account, Address, GnosisSafeOps} from "../safe/gnosisSafeTransaction";
 import type {AbiItem} from "web3-utils";
-import type {Contract} from "web3-eth-contract";
+import type {Contract, PastEventOptions} from "web3-eth-contract";
 import {CIRCLES_HUB_ABI, ZERO_ADDRESS} from "../consts";
 import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 import {BN} from "ethereumjs-util";
+import {Observable, Subject} from "rxjs";
 
 export class CirclesHub
 {
@@ -22,6 +23,33 @@ export class CirclesHub
     getSignupTxData()
     {
         return this.hubContract.methods.signup().encodeABI();
+    }
+
+    async feedPastEvents(event:string, options:PastEventOptions) {
+        const result = await this.hubContract.getPastEvents(event, options);
+        result.forEach(event => this._pastEvents.next(event));
+    }
+    private readonly _pastEvents:Subject<any> = new Subject<any>();
+
+    getEvents() : Observable<any> {
+        return new Observable<any>((subscriber => {
+            this._pastEvents.subscribe(next => subscriber.next(next));
+
+            this.hubContract.events.Signup()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.hubContract.events.HubTransfer()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.hubContract.events.OrganizationSignup()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.hubContract.events.Signup()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.hubContract.events.Trust()
+                .on('data', (event:any) =>  subscriber.next(event));
+        }));
     }
 
     async signup(account: Account, safeProxy: GnosisSafeProxy)

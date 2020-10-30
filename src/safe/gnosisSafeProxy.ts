@@ -15,6 +15,7 @@ import {signRawTransaction} from "../signRawTransaction";
 import {sendSignedRawTransaction} from "../sendSignedRawTransaction";
 import {config} from "../config";
 import EthLibAccount from "eth-lib/lib/account";
+import {Observable} from "rxjs";
 
 export class GnosisSafeProxy
 {
@@ -29,6 +30,49 @@ export class GnosisSafeProxy
         this.creatorAddress = creatorAddress;
         this.safeProxyAddress = safeProxyAddress;
         this.proxyContract = new this.web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, this.safeProxyAddress);
+    }
+
+    async feedPastEvents() {
+    }
+
+    getEvents() : Observable<any> {
+        return new Observable<any>((subscriber => {
+            this.proxyContract.events.AddedOwner()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ApproveHash()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ChangedMasterCopy()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ChangedThreshold()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.DisabledModule()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.EnabledModule()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ExecutionFailure()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ExecutionFromModuleFailure()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ExecutionFromModuleSuccess()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.ExecutionSuccess()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.RemovedOwner()
+                .on('data', (event:any) =>  subscriber.next(event));
+
+            this.proxyContract.events.SignMsg()
+                .on('data', (event:any) =>  subscriber.next(event));
+        }));
     }
 
     async getOwners(): Promise<string[]>
