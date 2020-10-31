@@ -1,18 +1,15 @@
 import type {AbiItem} from "web3-utils";
 import type Web3 from "web3";
-import {
-  Account,
-  Address,
-  ByteString,
-  GnosisSafeOps,
-  GnosisSafeTransaction,
-  validateSafeTransaction
-} from "./gnosisSafeTransaction";
 import {EMPTY_DATA, GNOSIS_SAFE_ABI, ZERO_ADDRESS} from "../consts";
 import {BN} from "ethereumjs-util";
 import {config} from "../config";
 import EthLibAccount from "eth-lib/lib/account";
 import {Web3Contract} from "../web3Contract";
+import type {Address} from "../interfaces/address";
+import type {Account} from "../interfaces/account";
+import type {GnosisSafeTransaction} from "../interfaces/gnosisSafeTransaction";
+import {GnosisSafeOps} from "../interfaces/gnosisSafeOps";
+import type {ByteString} from "../interfaces/byteString";
 
 export class GnosisSafeProxy extends Web3Contract
 {
@@ -24,7 +21,7 @@ export class GnosisSafeProxy extends Web3Contract
     this.creatorAddress = creatorAddress;
   }
 
-  static queryPastSuccessfulExecutions(address:Address)
+  static queryPastSuccessfulExecutions(address: Address)
   {
     return {
       event: "ExecutionSuccess",
@@ -49,12 +46,12 @@ export class GnosisSafeProxy extends Web3Contract
 
   async getOwners(): Promise<string[]>
   {
-    return await this.contractInstance.methods.getOwners().call();
+    return await this.contract.methods.getOwners().call();
   }
 
   async getNonce(): Promise<number>
   {
-    return parseInt(await this.contractInstance.methods.nonce().call());
+    return parseInt(await this.contract.methods.nonce().call());
   }
 
   async sendEth(account: Account, value: BN, to: Address)
@@ -73,7 +70,7 @@ export class GnosisSafeProxy extends Web3Contract
 
   async execTransaction(account: Account, safeTransaction: GnosisSafeTransaction)
   {
-    validateSafeTransaction(this.web3, safeTransaction);
+    this.validateSafeTransaction(safeTransaction);
 
     const estimatedBaseGas = this.estimateBaseGasCosts(safeTransaction, 1)
       .add(new BN(this.web3.utils.toWei("10000", "wei")));
@@ -98,7 +95,7 @@ export class GnosisSafeProxy extends Web3Contract
     const transactionHash = await this.getTransactionHash(executableTransaction);
     const signatures = GnosisSafeProxy.signTransactionHash(this.web3, account.privateKey, transactionHash);
 
-    const gasEstimationResult = await this.contractInstance.methods.execTransaction(
+    const gasEstimationResult = await this.contract.methods.execTransaction(
       executableTransaction.to,
       executableTransaction.value,
       executableTransaction.data,
@@ -114,12 +111,32 @@ export class GnosisSafeProxy extends Web3Contract
 
     const execTransactionData = this.toAbiMessage(executableTransaction, signatures.signature);
     const signedTransactionData = await this.signRawTransaction(
-      this.contractAddress,
+      this.address,
       execTransactionData,
       gasEstimate,
       new BN("0"));
 
     return await this.sendSignedRawTransaction(signedTransactionData);
+  }
+
+  private validateSafeTransaction(safeTransaction: GnosisSafeTransaction)
+  {
+    if (safeTransaction.safeTxGas && !BN.isBN(safeTransaction.safeTxGas))
+      throw new Error("The 'safeTxGas' property of the transaction is not a valid bn.js BigNum.");
+    if (safeTransaction.baseGas && !BN.isBN(safeTransaction.baseGas))
+      throw new Error("The 'baseGas' property of the transaction is not a valid bn.js BigNum.");
+    if (!BN.isBN(safeTransaction.value))
+      throw new Error("The 'value' property of the transaction is not a valid bn.js BigNum.");
+    if (!safeTransaction.data.startsWith("0x"))
+      throw new Error("The 'data' property doesn't have a '0x' prefix and therefore is not a valid byteString.");
+    if (!this.web3.utils.isAddress(safeTransaction.gasToken))
+      throw new Error("The 'gasToken' property doesn't contain a valid Ethereum address.");
+    if (!this.web3.utils.isAddress(safeTransaction.to))
+      throw new Error("The 'to' property doesn't contain a valid Ethereum address.");
+    if (!this.web3.utils.isAddress(safeTransaction.refundReceiver))
+      throw new Error("The 'refundReceiver' property doesn't contain a valid Ethereum address.");
+    if (safeTransaction.nonce && !Number.isInteger(safeTransaction.nonce))
+      throw new Error("The 'nonce' property doesn't contain a javascript integer value.");
   }
 
   /**
@@ -129,9 +146,9 @@ export class GnosisSafeProxy extends Web3Contract
    */
   private async getTransactionHash(safeTransaction: GnosisSafeTransaction)
   {
-    validateSafeTransaction(this.web3, safeTransaction);
+    this.validateSafeTransaction(safeTransaction);
 
-    return await this.contractInstance.methods.getTransactionHash(
+    return await this.contract.methods.getTransactionHash(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,
@@ -148,9 +165,9 @@ export class GnosisSafeProxy extends Web3Contract
   private async estimateSafeTxGasCosts(safeTransaction: GnosisSafeTransaction): Promise<BN>
   {
     // from https://github.com/gnosis/safe-react -> /src/logic/safe/transactions/gasNew.ts
-    validateSafeTransaction(this.web3, safeTransaction);
+    this.validateSafeTransaction(safeTransaction);
 
-    const estimateDataCallData = this.contractInstance.methods.requiredTxGas(
+    const estimateDataCallData = this.contract.methods.requiredTxGas(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,
@@ -159,8 +176,8 @@ export class GnosisSafeProxy extends Web3Contract
     let txGasEstimation = new BN("0");
 
     await this.web3.eth.call({
-      from: this.contractAddress,
-      to: this.contractAddress,
+      from: this.address,
+      to: this.address,
       data: estimateDataCallData
     })
       .catch(e =>
@@ -204,9 +221,9 @@ export class GnosisSafeProxy extends Web3Contract
 
   private toAbiMessage(safeTransaction: GnosisSafeTransaction, signatures?: string)
   {
-    validateSafeTransaction(this.web3, safeTransaction);
+    this.validateSafeTransaction(safeTransaction);
 
-    return this.contractInstance.methods.execTransaction(
+    return this.contract.methods.execTransaction(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,

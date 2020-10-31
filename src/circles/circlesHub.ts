@@ -1,10 +1,13 @@
 import type Web3 from "web3";
-import {Account, Address, GnosisSafeOps} from "../safe/gnosisSafeTransaction";
 import type {AbiItem} from "web3-utils";
 import {CIRCLES_HUB_ABI, ZERO_ADDRESS} from "../consts";
 import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 import {BN} from "ethereumjs-util";
 import {Web3Contract} from "../web3Contract";
+import type {Address} from "../interfaces/address";
+import type {Account} from "../interfaces/account";
+import {GnosisSafeOps} from "../interfaces/gnosisSafeOps";
+import {config} from "../config";
 
 export class CirclesHub extends Web3Contract
 {
@@ -20,7 +23,7 @@ export class CirclesHub extends Web3Contract
       filter: {
         user: user
       },
-      fromBlock: "earliest",
+      fromBlock: config.getCurrent().HUB_BLOCK,
       toBlock: "latest"
     };
   }
@@ -39,7 +42,7 @@ export class CirclesHub extends Web3Contract
     return {
       event: CirclesHub.HubTransferEvent,
       filter: f,
-      fromBlock: "earliest",
+      fromBlock: config.getCurrent().HUB_BLOCK,
       toBlock: "latest"
     };
   }
@@ -58,7 +61,7 @@ export class CirclesHub extends Web3Contract
     return {
       event: CirclesHub.TrustEvent,
       filter: f,
-      fromBlock: "earliest",
+      fromBlock: config.getCurrent().HUB_BLOCK,
       toBlock: "latest"
     };
   }
@@ -71,12 +74,12 @@ export class CirclesHub extends Web3Contract
 
   async signup(account: Account, safeProxy: GnosisSafeProxy)
   {
-    const txData = this.contractInstance.methods.signup().encodeABI();
+    const txData = this.contract.methods.signup().encodeABI();
 
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.contractAddress,
+        to: this.address,
         data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,
@@ -87,12 +90,12 @@ export class CirclesHub extends Web3Contract
 
   async setTrust(account: Account, safeProxy: GnosisSafeProxy, to: Address, trustPercentage: BN)
   {
-    const txData = this.contractInstance.methods.trust(to, trustPercentage).encodeABI();
+    const txData = this.contract.methods.trust(to, trustPercentage).encodeABI();
 
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.contractAddress,
+        to: this.address,
         data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,
@@ -104,20 +107,20 @@ export class CirclesHub extends Web3Contract
   async transferTrough(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
   {
     const transfer = {
-      tokenOwners: [safeProxy.contractAddress],
-      sources: [safeProxy.contractAddress],
+      tokenOwners: [safeProxy.address],
+      sources: [safeProxy.address],
       destinations: [to],
       values: [amount.toString()],
     };
 
-    const sendLimit = await this.contractInstance.methods
-      .checkSendLimit(safeProxy.contractAddress, safeProxy.contractAddress, to)
+    const sendLimit = await this.contract.methods
+      .checkSendLimit(safeProxy.address, safeProxy.address, to)
       .call();
 
     if (new BN(sendLimit).lt(amount))
       throw new Error("You cannot transfer " + amount.toString() + "units to " + to + " because the recipient doesn't trust your tokens.");
 
-    const txData = await this.contractInstance.methods.transferThrough(
+    const txData = await this.contract.methods.transferThrough(
       transfer.tokenOwners,
       transfer.sources,
       transfer.destinations,
@@ -128,7 +131,7 @@ export class CirclesHub extends Web3Contract
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.contractAddress,
+        to: this.address,
         data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,

@@ -3,8 +3,8 @@ import type {AbiItem} from "web3-utils";
 import {GNOSIS_SAFE_ABI, PROXY_FACTORY_ABI, ZERO_ADDRESS} from "../consts";
 import {BN} from "ethereumjs-util";
 import {GnosisSafeProxy} from "./gnosisSafeProxy";
-import type {Account, Address} from "./gnosisSafeTransaction";
 import {Web3Contract} from "../web3Contract";
+import type {Address} from "../interfaces/address";
 
 export class GnosisSafeProxyFactory extends Web3Contract
 {
@@ -43,18 +43,18 @@ export class GnosisSafeProxyFactory extends Web3Contract
       ZERO_ADDRESS     // paymentReceiver
     ).encodeABI();
 
-    const estimatedGas = new BN(await this.contractInstance.methods.createProxy(
+    const estimatedGas = new BN(await this.contract.methods.createProxy(
       this.masterSafeAddress,
       proxySetupData)
       .estimateGas());
 
-    const createProxyData = await this.contractInstance.methods.createProxy(
+    const createProxyData = await this.contract.methods.createProxy(
       this.masterSafeAddress,
       proxySetupData)
       .encodeABI();
 
     const signedRawTransaction = await this.signRawTransaction(
-      <any>this.contractAddress,
+      <any>this.address,
       createProxyData,
       estimatedGas,
       new BN("0"));
@@ -64,7 +64,7 @@ export class GnosisSafeProxyFactory extends Web3Contract
     let proxyAddress = undefined;
     for (let logEntry of minedReceipt.logs)
     {
-      if (logEntry.address != this.contractAddress)
+      if (logEntry.address != this.address)
       {
         continue;
       }

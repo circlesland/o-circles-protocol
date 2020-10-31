@@ -1,10 +1,3 @@
-export enum GnosisSafeOps
-{
-  CALL = 0,
-  DELETECALL = 1,
-  CREATE = 2
-}
-
 export const EMPTY_DATA = '0x'
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 export const PROXY_FACTORY_ABI = [

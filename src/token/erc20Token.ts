@@ -1,10 +1,13 @@
 import type Web3 from "web3";
-import {Account, Address, GnosisSafeOps} from "../safe/gnosisSafeTransaction";
 import type {AbiItem} from "web3-utils";
 import {ERC20_ABI, ZERO_ADDRESS} from "../consts";
 import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 import {BN} from "ethereumjs-util";
 import {Web3Contract} from "../web3Contract";
+import type {Address} from "../interfaces/address";
+import type {Account} from "../interfaces/account";
+import {GnosisSafeOps} from "../interfaces/gnosisSafeOps";
+import {config} from "../config";
 
 export class Erc20Token extends Web3Contract
 {
@@ -30,24 +33,29 @@ export class Erc20Token extends Web3Contract
     return {
       event: "Transfer",
       filter: f,
-      fromBlock: "earliest",
+      fromBlock: config.getCurrent().HUB_BLOCK,
       toBlock: "latest"
     };
   }
 
   async transfer(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
   {
-    const txData = this.contractInstance.methods.transfer(to, amount).encodeABI();
+    const txData = this.contract.methods.transfer(to, amount).encodeABI();
 
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.contractAddress,
+        to: this.address,
         data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,
         gasToken: ZERO_ADDRESS,
         operation: GnosisSafeOps.CALL
       });
+  }
+
+  async getBalanceOf(address:Address) {
+    const balance = await this.contract.methods.balanceOf(address).call();
+    return new BN(balance);
   }
 }
