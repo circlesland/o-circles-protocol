@@ -26,6 +26,7 @@ async function run()
     cfg.ACCOUNT.address,
     "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
 
+
   const safeEvents = [
     GnosisSafeProxy.AddedOwnerEvent, GnosisSafeProxy.ApproveHashEvent, GnosisSafeProxy.ChangedMasterCopyEvent,
     GnosisSafeProxy.ChangedThresholdEvent, GnosisSafeProxy.DisabledModuleEvent, GnosisSafeProxy.EnabledModuleEvent,

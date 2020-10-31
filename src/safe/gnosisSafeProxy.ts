@@ -10,8 +10,6 @@ import {
 } from "./gnosisSafeTransaction";
 import {EMPTY_DATA, GNOSIS_SAFE_ABI, ZERO_ADDRESS} from "../consts";
 import {BN} from "ethereumjs-util";
-import {signRawTransaction} from "../signRawTransaction";
-import {sendSignedRawTransaction} from "../sendSignedRawTransaction";
 import {config} from "../config";
 import EthLibAccount from "eth-lib/lib/account";
 import {Web3Contract} from "../web3Contract";
@@ -68,7 +66,7 @@ export class GnosisSafeProxy extends Web3Contract
       data: "0x",
       gasToken: ZERO_ADDRESS,
       refundReceiver: ZERO_ADDRESS,
-      gasPrice: new BN(this.web3.utils.toWei("1", "gwei"))
+      gasPrice: config.getCurrent().getGasPrice(this.web3)
     };
     return await this.execTransaction(account, safeTransaction);
   }
@@ -115,14 +113,13 @@ export class GnosisSafeProxy extends Web3Contract
     const gasEstimate = new BN(gasEstimationResult).add(estimatedBaseGas).add(estimatedSafeTxGas);
 
     const execTransactionData = this.toAbiMessage(executableTransaction, signatures.signature);
-    const signedTransactionData = await signRawTransaction(
-      this.web3,
-      <any>this.contractAddress,
+    const signedTransactionData = await this.signRawTransaction(
+      this.contractAddress,
       execTransactionData,
       gasEstimate,
       new BN("0"));
 
-    return await sendSignedRawTransaction(this.web3, signedTransactionData);
+    return await this.sendSignedRawTransaction(signedTransactionData);
   }
 
   /**
