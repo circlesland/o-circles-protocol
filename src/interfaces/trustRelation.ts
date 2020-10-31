@@ -1,5 +1,5 @@
-import {Address} from "./address";
-import {Event} from "./event";
+import type {Address} from "./address";
+import type {Event} from "./event";
 
 export interface TrustRelation extends Event {
   from: Address

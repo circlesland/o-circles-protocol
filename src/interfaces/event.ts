@@ -1,6 +1,6 @@
-import {BN} from "ethereumjs-util";
-import {ByteString} from "./byteString";
-import {Address} from "./address";
+import type {BN} from "ethereumjs-util";
+import type {ByteString} from "./byteString";
+import type {Address} from "./address";
 
 export interface Event {
   blockNumber: BN
