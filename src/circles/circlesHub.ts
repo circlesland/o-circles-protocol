@@ -1,34 +1,22 @@
 import type Web3 from "web3";
 import {Account, Address, GnosisSafeOps} from "../safe/gnosisSafeTransaction";
 import type {AbiItem} from "web3-utils";
-import type {Contract, PastEventOptions} from "web3-eth-contract";
 import {CIRCLES_HUB_ABI, ZERO_ADDRESS} from "../consts";
 import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 import {BN} from "ethereumjs-util";
-import {Observable, Subject} from "rxjs";
+import {Web3Contract} from "../web3Contract";
 
-export class CirclesHub
+export class CirclesHub extends Web3Contract
 {
-  readonly web3: Web3;
-  readonly hubAddress: Address;
-  readonly hubContract: Contract;
-
   constructor(web3: Web3, hubAddress: Address)
   {
-    this.web3 = web3;
-    this.hubAddress = hubAddress;
-    this.hubContract = new this.web3.eth.Contract(<AbiItem[]>CIRCLES_HUB_ABI, this.hubAddress);
-  }
-
-  getSignupTxData()
-  {
-    return this.hubContract.methods.signup().encodeABI();
+    super(web3, hubAddress, new web3.eth.Contract(<AbiItem[]>CIRCLES_HUB_ABI, hubAddress));
   }
 
   static queryPastSignup(user: Address)
   {
     return {
-      event: "Signup",
+      event: CirclesHub.SignupEvent,
       filter: {
         user: user
       },
@@ -49,7 +37,7 @@ export class CirclesHub
       f.to = to;
 
     return {
-      event: "HubTransfer",
+      event: CirclesHub.HubTransferEvent,
       filter: f,
       fromBlock: "earliest",
       toBlock: "latest"
@@ -68,50 +56,28 @@ export class CirclesHub
       f.user = user;
 
     return {
-      event: "Trust",
+      event: CirclesHub.TrustEvent,
       filter: f,
       fromBlock: "earliest",
       toBlock: "latest"
     };
   }
 
-  async feedPastEvents(options: PastEventOptions & {event:string})
-  {
-    const result = await this.hubContract.getPastEvents(options.event, options);
-    result.forEach(event => this._pastEvents.next(event));
-  }
+  static readonly SignupEvent = "Signup";
+  static readonly HubTransferEvent = "HubTransfer";
+  static readonly OrganizationSignupEvent = "OrganizationSignup";
+  static readonly TrustEvent = "Trust";
 
-  private readonly _pastEvents: Subject<any> = new Subject<any>();
-
-  getEvents(): Observable<any>
-  {
-    return new Observable<any>((subscriber =>
-    {
-      this._pastEvents.subscribe(next => subscriber.next(next));
-
-      this.hubContract.events.Signup()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.hubContract.events.HubTransfer()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.hubContract.events.OrganizationSignup()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.hubContract.events.Trust()
-        .on('data', (event: any) => subscriber.next(event));
-    }));
-  }
 
   async signup(account: Account, safeProxy: GnosisSafeProxy)
   {
-    const circlesHubSignupTxData = this.getSignupTxData();
+    const txData = this.contractInstance.methods.signup().encodeABI();
 
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.hubAddress,
-        data: circlesHubSignupTxData,
+        to: this.contractAddress,
+        data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,
         gasToken: ZERO_ADDRESS,
@@ -119,19 +85,15 @@ export class CirclesHub
       });
   }
 
-  getTrustTxData(recipient: Address, limit: BN)
-  {
-    return this.hubContract.methods.trust(recipient, limit).encodeABI();
-  }
-
   async setTrust(account: Account, safeProxy: GnosisSafeProxy, to: Address, trustPercentage: BN)
   {
-    const trustTxData = this.getTrustTxData(to, trustPercentage);
+    const txData = this.contractInstance.methods.trust(to, trustPercentage).encodeABI();
+
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.hubAddress,
-        data: trustTxData,
+        to: this.contractAddress,
+        data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,
         gasToken: ZERO_ADDRESS,
@@ -141,21 +103,21 @@ export class CirclesHub
 
   async transferTrough(account: Account, safeProxy: GnosisSafeProxy, to: Address, amount: BN)
   {
-    const transfer: { tokenOwners: Address[], sources: Address[], destinations: Address[], values: string[] } = {
-      tokenOwners: [safeProxy.safeProxyAddress],
-      sources: [safeProxy.safeProxyAddress],
+    const transfer = {
+      tokenOwners: [safeProxy.contractAddress],
+      sources: [safeProxy.contractAddress],
       destinations: [to],
       values: [amount.toString()],
     };
 
-    const sendLimit = await this.hubContract.methods
-      .checkSendLimit(safeProxy.safeProxyAddress, safeProxy.safeProxyAddress, to)
+    const sendLimit = await this.contractInstance.methods
+      .checkSendLimit(safeProxy.contractAddress, safeProxy.contractAddress, to)
       .call();
 
     if (new BN(sendLimit).lt(amount))
       throw new Error("You cannot transfer " + amount.toString() + "units to " + to + " because the recipient doesn't trust your tokens.");
 
-    const txData = await this.hubContract.methods.transferThrough(
+    const txData = await this.contractInstance.methods.transferThrough(
       transfer.tokenOwners,
       transfer.sources,
       transfer.destinations,
@@ -166,7 +128,7 @@ export class CirclesHub
     return await safeProxy.execTransaction(
       account,
       {
-        to: this.hubAddress,
+        to: this.contractAddress,
         data: txData,
         value: new BN("0"),
         refundReceiver: ZERO_ADDRESS,

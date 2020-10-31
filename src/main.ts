@@ -26,33 +26,44 @@ async function run()
     cfg.ACCOUNT.address,
     "0xC816d35b511bbBD647a063ef521bA12242C7F4B5");
 
-  safeProxy.getEvents().subscribe(event =>
+  const safeEvents = [
+    GnosisSafeProxy.AddedOwnerEvent, GnosisSafeProxy.ApproveHashEvent, GnosisSafeProxy.ChangedMasterCopyEvent,
+    GnosisSafeProxy.ChangedThresholdEvent, GnosisSafeProxy.DisabledModuleEvent, GnosisSafeProxy.EnabledModuleEvent,
+    GnosisSafeProxy.ExecutionFailureEvent, GnosisSafeProxy.ExecutionFromModuleFailureEvent, GnosisSafeProxy.ExecutionFromModuleSuccessEvent,
+    GnosisSafeProxy.ExecutionSuccessEvent, GnosisSafeProxy.RemovedOwnerEvent, GnosisSafeProxy.SignMsgEvent
+  ];
+  safeProxy.subscribeTo(safeEvents).subscribe(event =>
   {
      console.log("Safe event:", event);
   });
-
   // await safeProxy.feedPastEvents(GnosisSafeProxy.queryPastSuccessfulExecutions(safeProxy.safeProxyAddress));
+
 
   const circlesToken = new Erc20Token(
     web3,
     "0x591e3b7b6605098f9f78932ff753cb36bc33a825");
 
-  circlesToken.getEvents().subscribe(event =>
+  const tokenEvents = [
+    Erc20Token.ApprovalEvent, Erc20Token.TransferEvent
+  ];
+  circlesToken.subscribeTo(tokenEvents).subscribe(event =>
   {
     console.log("Token event:", event);
   });
-
   // await circlesToken.feedPastEvents(Erc20Token.queryPastTransfers("0xC816d35b511bbBD647a063ef521bA12242C7F4B5"));
 
   const circlesHub = new CirclesHub(web3, cfg.HUB_ADDRESS);
-
+  const hubEvents = [
+    CirclesHub.HubTransferEvent, CirclesHub.OrganizationSignupEvent, CirclesHub.SignupEvent, CirclesHub.TrustEvent
+  ];
   // Subscribe to the events of the circles hub.
-  circlesHub.getEvents().subscribe(event =>
+  circlesHub.subscribeTo(hubEvents).subscribe(event =>
   {
     console.log("Hub event:", event);
   });
+  await circlesHub.feedPastEvents(CirclesHub.queryPastSignup(safeProxy.contractAddress));
 
-  await circlesHub.feedPastEvents(CirclesHub.queryPastSignup(safeProxy.safeProxyAddress));
+
   /*
 
     await circlesHub.feedPastEvents(CirclesHub.queryPastTrusts("0xC816d35b511bbBD647a063ef521bA12242C7F4B5", undefined));

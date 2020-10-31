@@ -1,5 +1,4 @@
 import type {AbiItem} from "web3-utils";
-import type {Contract} from "web3-eth-contract";
 import type Web3 from "web3";
 import {
   Account,
@@ -15,23 +14,16 @@ import {signRawTransaction} from "../signRawTransaction";
 import {sendSignedRawTransaction} from "../sendSignedRawTransaction";
 import {config} from "../config";
 import EthLibAccount from "eth-lib/lib/account";
-import {Observable} from "rxjs";
-import type {PastEventOptions} from "web3-eth-contract";
-import {Subject} from "rxjs";
+import {Web3Contract} from "../web3Contract";
 
-export class GnosisSafeProxy
+export class GnosisSafeProxy extends Web3Contract
 {
   readonly creatorAddress: Address;
-  readonly safeProxyAddress: Address;
-  readonly web3: Web3;
-  readonly proxyContract: Contract;
 
   constructor(web3: Web3, creatorAddress: Address, safeProxyAddress: Address)
   {
-    this.web3 = web3;
+    super(web3, safeProxyAddress, new web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, safeProxyAddress));
     this.creatorAddress = creatorAddress;
-    this.safeProxyAddress = safeProxyAddress;
-    this.proxyContract = new this.web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, this.safeProxyAddress);
   }
 
   static queryPastSuccessfulExecutions(address:Address)
@@ -44,66 +36,27 @@ export class GnosisSafeProxy
     };
   }
 
-  async feedPastEvents(options: PastEventOptions & {event:string})
-  {
-    const result = await this.proxyContract.getPastEvents(options.event, options);
-    result.forEach(event => this._pastEvents.next(event));
-  }
-
-  private readonly _pastEvents: Subject<any> = new Subject<any>();
-
-  getEvents(): Observable<any>
-  {
-    return new Observable<any>((subscriber =>
-    {
-      this._pastEvents.subscribe(next => subscriber.next(next));
-
-      this.proxyContract.events.AddedOwner()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ApproveHash()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ChangedMasterCopy()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ChangedThreshold()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.DisabledModule()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.EnabledModule()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ExecutionFailure()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ExecutionFromModuleFailure()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ExecutionFromModuleSuccess()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.ExecutionSuccess()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.RemovedOwner()
-        .on('data', (event: any) => subscriber.next(event));
-
-      this.proxyContract.events.SignMsg()
-        .on('data', (event: any) => subscriber.next(event));
-    }));
-  }
+  static readonly AddedOwnerEvent = "AddedOwner";
+  static readonly ApproveHashEvent = "ApproveHash";
+  static readonly ChangedMasterCopyEvent = "ChangedMasterCopy";
+  static readonly ChangedThresholdEvent = "ChangedThreshold";
+  static readonly DisabledModuleEvent = "DisabledModule";
+  static readonly EnabledModuleEvent = "EnabledModule";
+  static readonly ExecutionFailureEvent = "ExecutionFailure";
+  static readonly ExecutionFromModuleFailureEvent = "ExecutionFromModuleFailure";
+  static readonly ExecutionFromModuleSuccessEvent = "ExecutionFromModuleSuccess";
+  static readonly ExecutionSuccessEvent = "ExecutionSuccess";
+  static readonly RemovedOwnerEvent = "RemovedOwner";
+  static readonly SignMsgEvent = "SignMsg";
 
   async getOwners(): Promise<string[]>
   {
-    return await this.proxyContract.methods.getOwners().call();
+    return await this.contractInstance.methods.getOwners().call();
   }
 
   async getNonce(): Promise<number>
   {
-    return parseInt(await this.proxyContract.methods.nonce().call());
+    return parseInt(await this.contractInstance.methods.nonce().call());
   }
 
   async sendEth(account: Account, value: BN, to: Address)
@@ -147,7 +100,7 @@ export class GnosisSafeProxy
     const transactionHash = await this.getTransactionHash(executableTransaction);
     const signatures = GnosisSafeProxy.signTransactionHash(this.web3, account.privateKey, transactionHash);
 
-    const gasEstimationResult = await this.proxyContract.methods.execTransaction(
+    const gasEstimationResult = await this.contractInstance.methods.execTransaction(
       executableTransaction.to,
       executableTransaction.value,
       executableTransaction.data,
@@ -164,7 +117,7 @@ export class GnosisSafeProxy
     const execTransactionData = this.toAbiMessage(executableTransaction, signatures.signature);
     const signedTransactionData = await signRawTransaction(
       this.web3,
-      <any>this.safeProxyAddress,
+      <any>this.contractAddress,
       execTransactionData,
       gasEstimate,
       new BN("0"));
@@ -181,7 +134,7 @@ export class GnosisSafeProxy
   {
     validateSafeTransaction(this.web3, safeTransaction);
 
-    return await this.proxyContract.methods.getTransactionHash(
+    return await this.contractInstance.methods.getTransactionHash(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,
@@ -200,7 +153,7 @@ export class GnosisSafeProxy
     // from https://github.com/gnosis/safe-react -> /src/logic/safe/transactions/gasNew.ts
     validateSafeTransaction(this.web3, safeTransaction);
 
-    const estimateDataCallData = this.proxyContract.methods.requiredTxGas(
+    const estimateDataCallData = this.contractInstance.methods.requiredTxGas(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,
@@ -209,8 +162,8 @@ export class GnosisSafeProxy
     let txGasEstimation = new BN("0");
 
     await this.web3.eth.call({
-      from: this.safeProxyAddress,
-      to: this.safeProxyAddress,
+      from: this.contractAddress,
+      to: this.contractAddress,
       data: estimateDataCallData
     })
       .catch(e =>
@@ -256,7 +209,7 @@ export class GnosisSafeProxy
   {
     validateSafeTransaction(this.web3, safeTransaction);
 
-    return this.proxyContract.methods.execTransaction(
+    return this.contractInstance.methods.execTransaction(
       safeTransaction.to,
       safeTransaction.value,
       safeTransaction.data,
