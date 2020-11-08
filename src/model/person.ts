@@ -46,7 +46,7 @@ export class Person implements Safe
     this._tokenAddress = tokenAddress;
   }
 
-  async getBalance(reload?: boolean): Promise<BN>
+  async getTokenBalances(reload?: boolean): Promise<{ balance: BN, token: Address }[]>
   {
     const myToken = await this.getOwnToken();
     if (!myToken)
@@ -58,25 +58,37 @@ export class Person implements Safe
       Object
         .keys(receivableTokens)
         .map(async tokenAddress =>
-          await receivableTokens[tokenAddress].token.getBalanceOf(this.address)));
+        {
+          return {
+            token: tokenAddress,
+            balance: await receivableTokens[tokenAddress].token.getBalanceOf(this.address)
+          };
+        }));
+
+    return tokenBalances;
+  }
+
+  async getBalance(reload?: boolean): Promise<BN>
+  {
+    const tokenBalances = await this.getTokenBalances(reload);
 
     return tokenBalances.reduce(
-      (p, c) => p.add(c),
+      (p, c) => p.add(c.balance),
       new BN("0"));
   }
 
   async getIncomingTransactions(reload?: boolean): Promise<TokenTransfer[]>
   {
     const receivableTokens = await this.getReceivableTokens(reload);
-    const incomingTransactions:Event[][] = await Promise.all(
+    const incomingTransactions: Event[][] = await Promise.all(
       Object
         .keys(receivableTokens)
         .map(async address => await receivableTokens[address]
-            .token
-            .queryEvents(Erc20Token.queryPastTransfers(undefined, this.address))
-            .toArray()));
+          .token
+          .queryEvents(Erc20Token.queryPastTransfers(undefined, this.address))
+          .toArray()));
 
-    return incomingTransactions.reduce((p,c) => p.concat(c)).map(o =>
+    return incomingTransactions.reduce((p, c) => p.concat(c)).map(o =>
     {
       let amount = this.circlesHub.web3.utils.fromWei(o.returnValues.value, "ether");
       const dot = amount.indexOf(".");
@@ -85,7 +97,7 @@ export class Person implements Safe
         direction: "in",
         blockNo: o.blockNumber,
         timestamp: o.blockNumber.toString(),
-        amount: amount ,
+        amount: amount,
         from: o.returnValues.from,
         subject: "Circles transfer",
         to: o.returnValues.to,
@@ -94,10 +106,11 @@ export class Person implements Safe
     });
   }
 
-  async getOutgoingTransactions(reload?:boolean) : Promise<TokenTransfer[]> {
+  async getOutgoingTransactions(reload?: boolean): Promise<TokenTransfer[]>
+  {
     const possibleReceivers = await this.getTrustingPersons(reload);
     const myToken = await this.getOwnToken();
-    const outgoingTransactions:Event[][] = await Promise.all(
+    const outgoingTransactions: Event[][] = await Promise.all(
       Object
         .keys(possibleReceivers)
         .map(async address =>
@@ -106,7 +119,7 @@ export class Person implements Safe
             .toArray()
         ));
 
-    return outgoingTransactions.reduce((p,c) => p.concat(c)).map(o =>
+    return outgoingTransactions.reduce((p, c) => p.concat(c)).map(o =>
     {
       let amount = this.circlesHub.web3.utils.fromWei(o.returnValues.value, "ether");
       const dot = amount.indexOf(".");
@@ -115,7 +128,7 @@ export class Person implements Safe
         direction: "out",
         blockNo: o.blockNumber,
         timestamp: o.blockNumber.toString(),
-        amount: amount ,
+        amount: amount,
         from: o.returnValues.from,
         subject: "Circles transfer",
         to: o.returnValues.to,
