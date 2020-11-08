@@ -5,6 +5,8 @@ import {BN} from "ethereumjs-util";
 import {CirclesToken} from "./circlesToken";
 import {Erc20Token} from "../token/erc20Token";
 import type {Event} from "../interfaces/event";
+import type {Account} from "../interfaces/account";
+import type {GnosisSafeProxy} from "../safe/gnosisSafeProxy";
 
 export type TokenAndOwner = {
   token: CirclesToken,
@@ -66,6 +68,12 @@ export class Person implements Safe
         }));
 
     return tokenBalances;
+  }
+
+  async getUBI(account:Account, safe:GnosisSafeProxy): Promise<any>
+  {
+    const owntoken = await this.getOwnToken();
+    return await owntoken.getUBI(account, safe);
   }
 
   async getBalance(reload?: boolean): Promise<BN>
