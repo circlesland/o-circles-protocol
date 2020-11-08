@@ -39,7 +39,7 @@ export const config = {
       address: "",
       privateKey: ""
     },
-    getGasPrice: (web3: Web3) => new BN(web3.utils.toWei("1", "gwei")),
+    getGasPrice: (web3: Web3) => new BN(web3.utils.toWei("2", "gwei")),
     ethjs: {
       getCommon: async function (web3: Web3)
       {
