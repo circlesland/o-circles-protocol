@@ -8,6 +8,7 @@ import type {Address} from "../interfaces/address";
 import type {Account} from "../interfaces/account";
 import {GnosisSafeOps} from "../interfaces/gnosisSafeOps";
 import {config} from "../config";
+import {from} from "rxjs";
 
 export class CirclesHub extends Web3Contract
 {
@@ -22,6 +23,18 @@ export class CirclesHub extends Web3Contract
       event: CirclesHub.SignupEvent,
       filter: {
         user: user
+      },
+      fromBlock: config.getCurrent().HUB_BLOCK,
+      toBlock: "latest"
+    };
+  }
+
+  static queryPastSignups(ofUsers:Address[])
+  {
+    return {
+      event: CirclesHub.SignupEvent,
+      filter: {
+        user: ofUsers
       },
       fromBlock: config.getCurrent().HUB_BLOCK,
       toBlock: "latest"
@@ -70,7 +83,6 @@ export class CirclesHub extends Web3Contract
   static readonly HubTransferEvent = "HubTransfer";
   static readonly OrganizationSignupEvent = "OrganizationSignup";
   static readonly TrustEvent = "Trust";
-
 
   async signup(account: Account, safeProxy: GnosisSafeProxy)
   {

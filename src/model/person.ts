@@ -1,124 +1,263 @@
 import type {Safe} from "../interfaces/safe";
-import type {Token} from "../interfaces/token";
 import type {Address} from "../interfaces/address";
 import {CirclesHub} from "../circles/circlesHub";
-import {filter} from 'rxjs/operators';
-import type {TrustRelation} from "../interfaces/trustRelation";
-import type {Event} from "../interfaces/event";
 import {BN} from "ethereumjs-util";
 import {CirclesToken} from "./circlesToken";
+import {Erc20Token} from "../token/erc20Token";
+import type {Event} from "../interfaces/event";
 
-export type TrustConnections = {
-  incoming: {[from:string]:TrustRelation},
-  outgoing: {[to:string]:TrustRelation},
-};
+export type TokenAndOwner = {
+  token: CirclesToken,
+  owner: Person,
+  limit?: number
+}
+
+export type AddressLookup = Map<Address, TokenAndOwner>
+
+export type TokenTransfer = {
+  subject: string,
+  amount: string,
+  blockNo: BN,
+  timestamp: string,
+  from: Address,
+  to: Address
+}
 
 export class Person implements Safe
 {
   /**
-   * Te address of the safe that represents this participant.
+   * The address of the safe that represents this participant.
    */
   readonly address: Address;
   readonly circlesHub: CirclesHub;
 
-  constructor(address: Address, circlesHub: CirclesHub)
+  private _tokenAddress?: Address;
+
+  private _receivableTokens?: AddressLookup;
+  private _trustedAddresses?: AddressLookup;
+
+  private _trusterTokens?: AddressLookup;
+  private _trusterAddresses?: AddressLookup;
+
+  constructor(circlesHub: CirclesHub, safeAddress: Address, tokenAddress?: Address)
   {
-    this.address = address;
+    this.address = safeAddress;
     this.circlesHub = circlesHub;
+    this._tokenAddress = tokenAddress;
+  }
+
+  async getBalance(reload?: boolean): Promise<BN>
+  {
+    const myToken = await this.getOwnToken();
+    if (!myToken)
+      throw new Error("The person has no token");
+
+    const receivableTokens = await this.getReceivableTokens(reload);
+
+    const tokenBalances = await Promise.all(
+      Object
+        .keys(receivableTokens)
+        .map(async tokenAddress =>
+          await receivableTokens[tokenAddress].token.getBalanceOf(this.address)));
+
+    return tokenBalances.reduce(
+      (p, c) => p.add(c),
+      new BN("0"));
+  }
+
+  async getIncomingTransactions(reload?: boolean): Promise<TokenTransfer[]>
+  {
+    const receivableTokens = await this.getReceivableTokens(reload);
+    const incomingTransactions:Event[][] = await Promise.all(
+      Object
+        .keys(receivableTokens)
+        .map(async address => await receivableTokens[address]
+            .token
+            .queryEvents(Erc20Token.queryPastTransfers(undefined, this.address))
+            .toArray()));
+
+    return incomingTransactions.reduce((p,c) => p.concat(c)).map(o =>
+    {
+      let amount = this.circlesHub.web3.utils.fromWei(o.returnValues.value, "ether");
+      const dot = amount.indexOf(".");
+      amount = amount.slice(0, dot + 3);
+      return {
+        direction: "in",
+        blockNo: o.blockNumber,
+        timestamp: o.blockNumber.toString(),
+        amount: amount ,
+        from: o.returnValues.from,
+        subject: "Circles transfer",
+        to: o.returnValues.to,
+        o
+      };
+    });
+  }
+
+  async getOutgoingTransactions(reload?:boolean) : Promise<TokenTransfer[]> {
+    const possibleReceivers = await this.getTrustingPersons(reload);
+    const myToken = await this.getOwnToken();
+    const outgoingTransactions:Event[][] = await Promise.all(
+      Object
+        .keys(possibleReceivers)
+        .map(async address =>
+          myToken
+            .queryEvents(Erc20Token.queryPastTransfers(this.address, address))
+            .toArray()
+        ));
+
+    return outgoingTransactions.reduce((p,c) => p.concat(c)).map(o =>
+    {
+      let amount = this.circlesHub.web3.utils.fromWei(o.returnValues.value, "ether");
+      const dot = amount.indexOf(".");
+      amount = amount.slice(0, dot + 3);
+      return {
+        direction: "out",
+        blockNo: o.blockNumber,
+        timestamp: o.blockNumber.toString(),
+        amount: amount ,
+        from: o.returnValues.from,
+        subject: "Circles transfer",
+        to: o.returnValues.to,
+        o
+      };
+    });
+  }
+
+  async getTrustingTokens(reload?: boolean): Promise<AddressLookup>
+  {
+    if (this._trusterTokens && !reload)
+    {
+      return this._trusterTokens;
+    }
+
+    await this.getTrustingPersons(reload);
+
+    return this._trusterTokens;
+  }
+
+  async getTrustingPersons(reload?: boolean): Promise<AddressLookup>
+  {
+    if (this._trusterAddresses && !reload)
+    {
+      return this._trusterAddresses;
+    }
+
+    const _trusterTokens = new Map<Address, TokenAndOwner>();
+    const _trusterAddresses = new Map<Address, TokenAndOwner>();
+
+    const canSendTo = await this.circlesHub
+      .queryEvents(CirclesHub.queryPastTrusts(undefined, this.address))
+      .getLatest(e => e.returnValues.canSendTo);
+
+    (await this.circlesHub
+      .queryEvents(CirclesHub.queryPastSignups(Object.keys(canSendTo)))
+      .toArray())
+      .map(event =>
+      {
+        return {
+          token: event.returnValues.token,
+          ofUser: event.returnValues.user,
+          limit: canSendTo[event.returnValues.user].returnValues.limit
+        };
+      })
+      .map(o =>
+      {
+        return {
+          token: new CirclesToken(this.circlesHub.web3, o.token),
+          owner: new Person(this.circlesHub, o.ofUser, o.token),
+          limit: o.limit
+        };
+      })
+      .forEach(o =>
+      {
+        _trusterTokens[o.token.address] = o;
+        _trusterAddresses[o.owner.address] = o;
+      });
+
+    this._trusterTokens = _trusterTokens;
+    this._trustedAddresses = _trusterAddresses;
+
+    return _trusterAddresses;
+  }
+
+  async getTrustedPersons(reload?: boolean): Promise<AddressLookup>
+  {
+    if (this._trustedAddresses && !reload)
+    {
+      return this._trustedAddresses;
+    }
+
+    await this.getReceivableTokens(reload);
+
+    return this._trustedAddresses;
+  }
+
+  async getReceivableTokens(reload?: boolean): Promise<AddressLookup>
+  {
+    if (this._receivableTokens && !reload)
+    {
+      return this._receivableTokens;
+    }
+
+    const canReceiveFrom = await this.circlesHub
+      .queryEvents(CirclesHub.queryPastTrusts(this.address, undefined))
+      .getLatest(e => e.returnValues.user);
+
+    const _receivableTokens = new Map<Address, TokenAndOwner>();
+    const _trustedAddresses = new Map<Address, TokenAndOwner>();
+
+    (await this.circlesHub
+      .queryEvents(CirclesHub.queryPastSignups(Object.keys(canReceiveFrom)))
+      .toArray())
+      .map(event =>
+      {
+        return {
+          token: event.returnValues.token,
+          ofUser: event.returnValues.user,
+          limit: canReceiveFrom[event.returnValues.user].returnValues.limit
+        };
+      })
+      .map(o =>
+      {
+        return {
+          token: new CirclesToken(this.circlesHub.web3, o.token),
+          owner: new Person(this.circlesHub, o.ofUser, o.token),
+          limit: o.limit
+        };
+      })
+      .forEach(o =>
+      {
+        _receivableTokens[o.token.address] = o;
+        _trustedAddresses[o.owner.address] = o;
+      });
+
+    this._receivableTokens = _receivableTokens;
+    this._trustedAddresses = _trustedAddresses;
+
+    return _receivableTokens;
   }
 
   /**
    * Gets the personal circles token of this person.
    */
-  async getOwnToken(): Promise<CirclesToken|undefined>
+  async getOwnToken(): Promise<CirclesToken | undefined>
   {
-    const safeAddress = this.address;
-    const foundOwnToken = await new Promise<Token>(async (resolve, reject) =>
+    if (this._tokenAddress)
     {
-      const subscription = this.circlesHub.subscribeTo([CirclesHub.SignupEvent])
-        .pipe(
-          filter((event: any) => event.returnValues.user
-            && event.returnValues.user.toLowerCase() === safeAddress.toLowerCase()),
-        )
-        .subscribe(signup =>
-        {
-          subscription.unsubscribe();
+      return new CirclesToken(this.circlesHub.web3, this._tokenAddress);
+    }
 
-          resolve({
-            address: signup.returnValues.token
-          });
-        });
+    const events = await this.circlesHub.queryEvents(CirclesHub.queryPastSignup(this.address)).toArray();
 
-     const count = await this.circlesHub.feedPastEvents(CirclesHub.queryPastSignup(safeAddress));
-     if (count == 0) {
-       subscription.unsubscribe();
-       resolve(undefined);
-     }
-    });
-
-    if (!foundOwnToken)
+    if (events.length == 0)
       return undefined;
 
-    return new CirclesToken(this.circlesHub.web3, foundOwnToken.address);
-  }
+    this._tokenAddress = events[0].returnValues.token;
 
-  /**
-   * Gets the current state of the persons' trust relations by listening to all
-   * previous CirclesHub.Trust events for this person and building an aggregate state
-   * with the most recent trust limits.
-   */
-  async getTrustRelations(): Promise<TrustConnections>
-  {
-    const safeAddress = this.address;
+    if (!this._tokenAddress)
+      return undefined;
 
-    const incoming: TrustRelation[] = [];
-    const outgoing: TrustRelation[] = [];
-
-    const subscription = this.circlesHub.subscribeTo([CirclesHub.TrustEvent])
-      .pipe(
-        filter((event: any) => event.event == CirclesHub.TrustEvent),
-      )
-      .subscribe(event =>
-      {
-        const trustRelation: TrustRelation = {
-          blockNumber: new BN(event.blockNumber),
-          blockHash: event.blockHash,
-          address: event.address,
-          from: event.returnValues.user,
-          to: event.returnValues.canSendTo,
-          limit: event.returnValues.limit
-        };
-
-        if (event.returnValues.canSendTo === safeAddress)
-        {
-          incoming.push(trustRelation);
-        }
-        if (event.returnValues.user === safeAddress)
-        {
-          outgoing.push(trustRelation);
-        }
-      });
-
-    await Promise.all([
-      await this.circlesHub.feedPastEvents(CirclesHub.queryPastTrusts(this.address)),
-      await this.circlesHub.feedPastEvents(CirclesHub.queryPastTrusts(undefined, this.address))
-    ]);
-
-    subscription.unsubscribe();
-
-    const bnComparerAsc = (a: Event, b: Event) => a.blockNumber.cmp(b.blockNumber);
-
-    incoming.sort(bnComparerAsc);
-    const incomingConnections:{[key:string]:TrustRelation} = {};
-    incoming.forEach(c => incomingConnections[c.from] = c)
-
-    outgoing.sort(bnComparerAsc);
-    const outgoingConnections:{[key:string]:TrustRelation} = {};
-    outgoing.forEach(c => outgoingConnections[c.to] = c)
-
-    return {
-      incoming: incomingConnections,
-      outgoing: outgoingConnections
-    };
+    return new CirclesToken(this.circlesHub.web3, this._tokenAddress);
   }
 }

@@ -5,6 +5,7 @@ import {BN} from "ethereumjs-util";
 import {GnosisSafeProxy} from "./gnosisSafeProxy";
 import {Web3Contract} from "../web3Contract";
 import type {Address} from "../interfaces/address";
+import type {Account} from "../interfaces/account";
 
 export class GnosisSafeProxyFactory extends Web3Contract
 {
@@ -27,7 +28,7 @@ export class GnosisSafeProxyFactory extends Web3Contract
    * @param creator The account that creates the instance (The creator must also be an owner!)
    * @param gasPrice The gas price in wei
    */
-  async deployNewSafeProxy()
+  async deployNewSafeProxy(account:Account)
     : Promise<GnosisSafeProxy>
   {
     const gnosisSafe = new this.web3.eth.Contract(<AbiItem[]>GNOSIS_SAFE_ABI, this.masterSafeAddress);
@@ -54,6 +55,7 @@ export class GnosisSafeProxyFactory extends Web3Contract
       .encodeABI();
 
     const signedRawTransaction = await this.signRawTransaction(
+      account,
       <any>this.address,
       createProxyData,
       estimatedGas,

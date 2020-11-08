@@ -111,6 +111,7 @@ export class GnosisSafeProxy extends Web3Contract
 
     const execTransactionData = this.toAbiMessage(executableTransaction, signatures.signature);
     const signedTransactionData = await this.signRawTransaction(
+      account,
       this.address,
       execTransactionData,
       gasEstimate,
